@@ -2,7 +2,7 @@ when:
   - event: tag
 
 variables:
-  - &golang_image 'reg.devxy.io/docker.io/library/golang:1.25-alpine'
+  - &golang_image 'reg.devxy.io/docker.io/library/golang:1.25-alpine3.23'
 
 clone:
   git:
@@ -15,12 +15,13 @@ steps:
     image: *golang_image
     commands:
       - go mod vendor
+      - go mod tidy
 
   build-cli:
     image: *golang_image
     commands:
-      - apk add --no-cache -q just git sqlite-dev libc-dev gcc g++ build-base musl-dev binutils binutils-gold zip
-      - just release-cli
+      - apk add --no-cache -q just git
+      - just build-all
 
   changelog:
     image: reg.devxy.io/docker.io/thegeeklab/git-sv:2.0.9
@@ -30,6 +31,13 @@ steps:
       - git sv release-notes -t ${CI_COMMIT_TAG} -o CHANGELOG.md
       - sed -i '1,2d' CHANGELOG.md #  remove version
       - cat CHANGELOG.md
+
+  # the dynamic release source tarball changes it checksum frequently
+  source-tarball:
+    image: reg.devxy.io/docker.io/library/alpine:3.23
+    commands:
+      - apk add --no-cache -q git
+      - git archive --format=tar.gz --prefix=backporter-${CI_COMMIT_TAG#v}/ -o dist/backporter-${CI_COMMIT_TAG#v}.tar.gz HEAD
 
   'Create release':
     image: reg.devxy.io/docker.io/woodpeckerci/plugin-release:0.2.6
@@ -42,16 +50,17 @@ steps:
       title: ${CI_COMMIT_TAG}
 
   'Bump version in homebrew-tap':
-    image: alpine:3.23
+    image: reg.devxy.io/docker.io/library/alpine:3.23
     commands:
-      - apk add --no-cache -q curl jq git sed
+      - apk add --no-cache -q curl git sed
+      - TARBALL_URL="${CI_FORGE_URL}/${CI_REPO}/releases/download/${CI_COMMIT_TAG}/backporter-${CI_COMMIT_TAG#v}.tar.gz"
       - git clone ${CI_FORGE_URL}/${CI_REPO_OWNER}/homebrew-tap.git
       - cd homebrew-tap
-      - curl -s -O "${CI_FORGE_URL}/${CI_REPO}/archive/refs/tags/${CI_COMMIT_TAG}.tar.gz"
-      - SHA256=$(sha256sum "${CI_COMMIT_TAG}.tar.gz" | cut -d' ' -f1)
-      - sed -i "s|url .*\.tar\.gz|url \"${CI_FORGE_URL}/${CI_REPO}/archive/refs/tags/${CI_COMMIT_TAG}.tar.gz|" Formula/backporter.rb
-      - sed -i "s/sha256 \"[^\"]*\"/sha256 \"$SHA256\"/" Formula/backporter.rb
-      - rm -rf ${CI_COMMIT_TAG}.tar.gz
+      - curl -sL -O "$${TARBALL_URL}"
+      - SHA256=$$(sha256sum "backporter-${CI_COMMIT_TAG#v}.tar.gz" | cut -d' ' -f1)
+      - sed -i "s|url .*|url \"$${TARBALL_URL}\"|" Formula/backporter.rb
+      - sed -i "s/sha256 \"[^\"]*\"/sha256 \"$$SHA256\"/" Formula/backporter.rb
+      - rm -f backporter-${CI_COMMIT_TAG#v}.tar.gz
 
   'Push changes to homebrew-tap':
     image: reg.devxy.io/docker.io/appleboy/drone-git-push:1.1.1
@@ -61,7 +70,7 @@ steps:
       branch: main
       commit: true
       ssh_key:
-        from_secret: crowci-bot-ssh-key
+        from_secret: homebrew-tap-deploy-key
       commit_message: 'chore: bump version to ${CI_COMMIT_TAG}'
       commit_author: pat-s
       commit_author_email: pat-s@mailbox.org
