@@ -1,0 +1,21 @@
+when:
+  - event: cron
+    cron: securityscan
+
+steps:
+  - name: scan
+    image: reg.devxy.io/docker.io/aquasec/trivy:0.68.1
+    environment:
+      TRIVY_DISABLE_VEX_NOTICE: true
+    commands:
+      - trivy fs --format template --template @assets/trivy-markdown.tpl --skip-dirs vendor,node_modules/,extras . > scan.md
+
+  - name: Update issue
+    image: reg.devxy.io/docker.io/library/alpine:3.23
+    environment:
+      ISSUE_TOKEN:
+        from_secret: codefloe_issue_token
+    commands:
+      - apk add -q --no-cache jq curl
+      - JSON_DATA=$(echo "" | jq -Rs --arg title 'Vulnerability dashboard' --arg body "$(cat scan.md)" '{title:$title, body:$body}')
+      - curl -s -X PATCH "${CI_FORGE_URL}/api/v1/repos/${CI_REPO}/issues/1?token=$ISSUE_TOKEN" -H "Content-Type:application/json" -d "$JSON_DATA"

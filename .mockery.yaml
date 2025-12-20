@@ -1,0 +1,9 @@
+with-expecter: true
+filename: 'mock_{{.InterfaceName}}.go'
+dir: '{{.InterfaceDir}}/mocks'
+mockname: 'Mock{{.InterfaceName}}'
+outpkg: 'mocks'
+packages:
+  github.com/pat-s/backporter/pkg/forge:
+    interfaces:
+      Forge:

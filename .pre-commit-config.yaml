@@ -1,0 +1,41 @@
+# cSpell:ignore checkmake hadolint autofix autoupdate
+repos:
+  - repo: meta
+    hooks:
+      - id: check-hooks-apply
+      - id: check-useless-excludes
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args:
+          - --markdown-linebreak-ext=md
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.7.2
+    hooks:
+      - id: golangci-lint
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.20.0
+    hooks:
+      - id: markdownlint-cli2
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.7.4
+    hooks:
+      - id: prettier
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [--strict, -c=.yamllint.yaml]
+  - repo: local
+    hooks:
+      - id: yaml-file-extension
+        name: Check if YAML files has *.yaml extension.
+        entry: YAML filenames must have .yaml extension.
+        language: fail
+        files: .yml$
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker
+    rev: v3.6.0
+    hooks:
+      - id: editorconfig-checker

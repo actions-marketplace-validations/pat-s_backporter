@@ -1,0 +1,33 @@
+clone:
+  git:
+    image: codeberg.org/crow-plugins/clone:1.0.2
+    settings:
+      tags: true
+
+when:
+  - event: push
+    branch: ${CI_REPO_DEFAULT_BRANCH}
+  - event: manual
+
+steps:
+  - name: 'Upcoming Changelog'
+    environment:
+      ISSUE_TOKEN:
+        from_secret: codefloe_issue_token
+    image: reg.devxy.io/docker.io/thegeeklab/git-sv:2.0.9
+    commands: |
+      apk add -q --no-cache curl jq sed
+      git sv rn -o changelog.md
+      export RELEASE_NOTES=$(cat changelog.md)
+      export ISSUE_NUMBER=$(curl -s "https://${CI_FORGE_URL}/api/v1/repos/${CI_REPO}/issues?state=open" | jq -r '.[] | select(.title == "Changelog for upcoming version") | .number // empty')
+
+      echo "RELEASE_NOTES: '$RELEASE_NOTES'"
+      echo "ISSUE_NUMBER: '$ISSUE_NUMBER'"
+
+      JSON_DATA=$(echo "" | jq -Rs --arg title 'Changelog for upcoming version' --arg body "$(cat changelog.md)" '{title: $title, body: $body}')
+
+      if [ -z "$ISSUE_NUMBER" ]; then
+        curl -v -X POST "${CI_FORGE_URL}/api/v1/repos/${CI_REPO}/issues" -H "Authorization: token $ISSUE_TOKEN" -H "Content-Type: application/json" -d "$JSON_DATA"
+      else
+        curl -v -X PATCH "${CI_FORGE_URL}/api/v1/repos/${CI_REPO}/issues/$ISSUE_NUMBER" -H "Authorization: token $ISSUE_TOKEN" -H "Content-Type: application/json" -d "$JSON_DATA"
+      fi

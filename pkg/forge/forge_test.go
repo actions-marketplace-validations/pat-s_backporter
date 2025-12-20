@@ -1,0 +1,108 @@
+package forge
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNew(t *testing.T) {
+	tests := []struct {
+		name      string
+		forgeType string
+		token     string
+		wantError bool
+		wantName  string
+	}{
+		{
+			name:      "github forge",
+			forgeType: "github",
+			token:     "test-token",
+			wantError: false,
+			wantName:  "github",
+		},
+		{
+			name:      "github forge without token",
+			forgeType: "github",
+			token:     "",
+			wantError: false,
+			wantName:  "github",
+		},
+		{
+			name:      "forgejo forge without URL",
+			forgeType: "forgejo",
+			token:     "test-token",
+			wantError: true,
+			wantName:  "",
+		},
+		{
+			name:      "unknown forge type",
+			forgeType: "gitlab",
+			token:     "test-token",
+			wantError: true,
+			wantName:  "",
+		},
+		{
+			name:      "empty forge type",
+			forgeType: "",
+			token:     "",
+			wantError: true,
+			wantName:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			forge, err := New(tt.forgeType, tt.token)
+
+			if tt.wantError {
+				assert.Error(t, err)
+				assert.Nil(t, forge)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, forge)
+				assert.Equal(t, tt.wantName, forge.Name())
+			}
+		})
+	}
+}
+
+func TestPRInfoIsSquashMerge(t *testing.T) {
+	tests := []struct {
+		name     string
+		prInfo   *PRInfo
+		expected bool
+	}{
+		{
+			name: "squash merge",
+			prInfo: &PRInfo{
+				Squashed: true,
+			},
+			expected: true,
+		},
+		{
+			name: "not squash merge",
+			prInfo: &PRInfo{
+				Squashed: false,
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.prInfo.IsSquashMerge()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGitHubName(t *testing.T) {
+	gh := NewGitHub("test-token")
+	assert.Equal(t, "github", gh.Name())
+}
+
+func TestForgejoName(t *testing.T) {
+	fg := NewForgejo("https://codeberg.org", "test-token")
+	assert.Equal(t, "forgejo", fg.Name())
+}

@@ -1,0 +1,53 @@
+# Example backporter configuration file
+# Place this file at ~/.config/backporter/config.yaml for global settings
+# or .backporter.yaml in your repository root for project-specific settings
+
+# Forge type: "github" or "forgejo"
+# Required for PR-related features
+forge_type: github
+
+# Forgejo/Gitea instance URL (only required for forgejo forge type)
+# Can also be set via FORGEJO_URL environment variable
+# forgejo_url: https://codeberg.org
+
+# Default target branches for backporting (supports regex patterns)
+target_branches:
+  - release-1.x
+  - release-2.x
+  - stable
+
+# Custom commit message template (optional)
+# Available variables: {{.OriginalMessage}}
+commit_message: ''
+
+# Default author name for commits (optional, uses git config if not set)
+author_name: ''
+
+# Default author email for commits (optional, uses git config if not set)
+author_email: ''
+
+# Default branch to work from
+default_branch: main
+
+# Git remote name
+remote: origin
+
+# Number of recent PRs to show in interactive mode (default: 10)
+recent_pr_count: 10
+
+# Cache settings
+cache:
+  # Enable caching of backported commits/PRs
+  enabled: true
+  # Custom cache file path (optional, defaults to ~/.cache/backporter/history.json)
+  path: ''
+
+# Environment variables required for authentication:
+#
+# For GitHub:
+#   export GITHUB_TOKEN=<your-token>
+#   Required scopes: repo (private) or public_repo (public only)
+#
+# For Forgejo/Gitea:
+#   export FORGEJO_TOKEN=<your-token>
+#   Required scopes: repository:read
