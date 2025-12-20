@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/charmbracelet/huh v0.6.0
-	github.com/go-git/go-git/v5 v5.12.0
+	github.com/go-git/go-git/v5 v5.13.0
 	github.com/google/go-github/v66 v66.0.0
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.9.0
