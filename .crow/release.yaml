@@ -53,14 +53,27 @@ steps:
     image: reg.devxy.io/docker.io/library/alpine:3.23
     commands:
       - apk add --no-cache -q curl git sed
-      - TARBALL_URL="${CI_FORGE_URL}/${CI_REPO}/releases/download/${CI_COMMIT_TAG}/backporter-${CI_COMMIT_TAG#v}.tar.gz"
       - git clone ${CI_FORGE_URL}/${CI_REPO_OWNER}/homebrew-tap.git
       - cd homebrew-tap
-      - curl -sL -O "$${TARBALL_URL}"
-      - SHA256=$$(sha256sum "backporter-${CI_COMMIT_TAG#v}.tar.gz" | cut -d' ' -f1)
-      - sed -i "s|url .*|url \"$${TARBALL_URL}\"|" Formula/backporter.rb
-      - sed -i "s/sha256 \"[^\"]*\"/sha256 \"$$SHA256\"/" Formula/backporter.rb
-      - rm -f backporter-${CI_COMMIT_TAG#v}.tar.gz
+      - BASE_URL="${CI_FORGE_URL}/${CI_REPO}/releases/download/${CI_COMMIT_TAG}"
+      - VERSION="${CI_COMMIT_TAG#v}"
+      # Download all binaries and compute checksums
+      - SHA_DARWIN_ARM64=$$(curl -sL "$${BASE_URL}/backporter_darwin_arm64.tar.gz" | sha256sum | cut -d' ' -f1)
+      - SHA_DARWIN_AMD64=$$(curl -sL "$${BASE_URL}/backporter_darwin_amd64.tar.gz" | sha256sum | cut -d' ' -f1)
+      - SHA_LINUX_ARM64=$$(curl -sL "$${BASE_URL}/backporter_linux_arm64.tar.gz" | sha256sum | cut -d' ' -f1)
+      - SHA_LINUX_AMD64=$$(curl -sL "$${BASE_URL}/backporter_linux_amd64.tar.gz" | sha256sum | cut -d' ' -f1)
+      # Update version
+      - sed -i "s/version \"[^\"]*\"/version \"$${VERSION}\"/" Formula/backporter.rb
+      # Update URLs
+      - sed -i "s|url \".*backporter_darwin_arm64.tar.gz\"|url \"$${BASE_URL}/backporter_darwin_arm64.tar.gz\"|" Formula/backporter.rb
+      - sed -i "s|url \".*backporter_darwin_amd64.tar.gz\"|url \"$${BASE_URL}/backporter_darwin_amd64.tar.gz\"|" Formula/backporter.rb
+      - sed -i "s|url \".*backporter_linux_arm64.tar.gz\"|url \"$${BASE_URL}/backporter_linux_arm64.tar.gz\"|" Formula/backporter.rb
+      - sed -i "s|url \".*backporter_linux_amd64.tar.gz\"|url \"$${BASE_URL}/backporter_linux_amd64.tar.gz\"|" Formula/backporter.rb
+      # Update checksums (match by URL context on previous line)
+      - sed -i "/darwin_arm64/{n;s/sha256 \"[^\"]*\"/sha256 \"$${SHA_DARWIN_ARM64}\"/;}" Formula/backporter.rb
+      - sed -i "/darwin_amd64/{n;s/sha256 \"[^\"]*\"/sha256 \"$${SHA_DARWIN_AMD64}\"/;}" Formula/backporter.rb
+      - sed -i "/linux_arm64/{n;s/sha256 \"[^\"]*\"/sha256 \"$${SHA_LINUX_ARM64}\"/;}" Formula/backporter.rb
+      - sed -i "/linux_amd64/{n;s/sha256 \"[^\"]*\"/sha256 \"$${SHA_LINUX_AMD64}\"/;}" Formula/backporter.rb
 
   'Push changes to homebrew-tap':
     image: reg.devxy.io/docker.io/appleboy/drone-git-push:1.1.1
