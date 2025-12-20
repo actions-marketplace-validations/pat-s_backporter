@@ -32,6 +32,10 @@ fmt:
     golangci-lint run --fix
     gci write --skip-vendor --skip-generated -s standard -s default -s "prefix(codefloe.com/pat-s/backporter)" --custom-order .
 
+vendor:
+    go mod vendor
+    go mod tidy
+
 generate:
     go generate ./...
 
