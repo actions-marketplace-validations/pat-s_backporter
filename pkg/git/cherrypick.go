@@ -142,10 +142,15 @@ func Push(remote, branch string) error {
 
 // GetHeadCommitMessage returns the commit message of HEAD.
 func GetHeadCommitMessage() (string, error) {
-	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	return GetCommitMessage("HEAD")
+}
+
+// GetCommitMessage returns the commit message of the specified ref.
+func GetCommitMessage(ref string) (string, error) {
+	cmd := exec.Command("git", "log", "-1", "--format=%B", ref)
 	output, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get HEAD commit message: %w", err)
+		return "", fmt.Errorf("failed to get commit message for %s: %w", ref, err)
 	}
 	return strings.TrimSpace(string(output)), nil
 }

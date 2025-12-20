@@ -62,15 +62,27 @@ func backportCI(ctx context.Context, c *cli.Command) error {
 		log.Debug().Str("forge", cfg.ForgeType).Msg("configured git user for CI")
 	}
 
-	// 4. Get the most recent commit on the default branch.
-	commitMsg, err := git.GetHeadCommitMessage()
-	if err != nil {
-		return fmt.Errorf("failed to get HEAD commit message: %w", err)
+	// 4. Fetch from remote to ensure we have the latest commits.
+	log.Debug().Str("remote", cfg.Remote).Msg("fetching from remote")
+	if err := git.Fetch(cfg.Remote); err != nil {
+		return fmt.Errorf("failed to fetch from remote: %w", err)
 	}
 
-	log.Debug().Str("message", commitMsg).Msg("HEAD commit message")
+	// 5. Get the most recent commit on the default branch from remote.
+	defaultBranch := cfg.DefaultBranch
+	if defaultBranch == "" {
+		defaultBranch = "main"
+	}
+	remoteRef := fmt.Sprintf("%s/%s", cfg.Remote, defaultBranch)
 
-	// 5. Parse PR number from commit message.
+	commitMsg, err := git.GetCommitMessage(remoteRef)
+	if err != nil {
+		return fmt.Errorf("failed to get commit message from %s: %w", remoteRef, err)
+	}
+
+	log.Debug().Str("ref", remoteRef).Str("message", commitMsg).Msg("default branch commit message")
+
+	// 6. Parse PR number from commit message.
 	prNumber := parsePRNumber(commitMsg)
 	if prNumber == 0 {
 		log.Info().Msg("no PR number found in commit message, skipping backport")
@@ -79,7 +91,7 @@ func backportCI(ctx context.Context, c *cli.Command) error {
 
 	log.Info().Int("pr", prNumber).Msg("found PR number in commit")
 
-	// 6. Fetch PR info including labels.
+	// 7. Fetch PR info including labels.
 	prInfo, err := forgeClient.GetPR(ctx, owner, repoName, prNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get PR #%d: %w", prNumber, err)
@@ -87,7 +99,7 @@ func backportCI(ctx context.Context, c *cli.Command) error {
 
 	log.Debug().Strs("labels", prInfo.Labels).Msg("PR labels")
 
-	// 7. Check for backport label.
+	// 8. Check for backport label.
 	if !prInfo.HasBackportLabel() {
 		log.Info().Msg("PR does not have a backport label, skipping")
 		return nil
@@ -95,7 +107,7 @@ func backportCI(ctx context.Context, c *cli.Command) error {
 
 	log.Info().Msg("PR has backport label, proceeding with backport")
 
-	// 8. Get target branches from config.
+	// 9. Get target branches from config.
 	targetBranches := cfg.TargetBranches
 	if len(targetBranches) == 0 {
 		return fmt.Errorf("no target branches configured in config file")
@@ -103,7 +115,7 @@ func backportCI(ctx context.Context, c *cli.Command) error {
 
 	log.Info().Strs("branches", targetBranches).Msg("target branches")
 
-	// 9. Extract conventional commit prefix from PR title.
+	// 10. Extract conventional commit prefix from PR title.
 	prefix := extractConvCommitPrefix(prInfo.Title)
 	if prefix == "" {
 		prefix = cfg.CI.DefaultPrefix
@@ -112,14 +124,14 @@ func backportCI(ctx context.Context, c *cli.Command) error {
 		log.Debug().Str("prefix", prefix).Msg("extracted prefix from PR title")
 	}
 
-	// 10. Process each target branch.
+	// 11. Process each target branch.
 	var results []CIResult
 	for _, targetBranch := range targetBranches {
 		result := processCIBackport(ctx, forgeClient, owner, repoName, prInfo, targetBranch, prefix, cfg.Remote, dryRun)
 		results = append(results, result)
 	}
 
-	// 11. Output summary.
+	// 12. Output summary.
 	outputCISummary(results, prNumber)
 
 	// Check if any failed.
