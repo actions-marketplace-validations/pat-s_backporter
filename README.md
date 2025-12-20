@@ -146,7 +146,7 @@ jobs:
 ```yaml
 # .crow/backport.yaml
 when:
-  - event: pull_request_closed
+  - event: pull_request_merged
 
 steps:
   backport:
