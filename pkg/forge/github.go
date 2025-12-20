@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/go-github/v66/github"
+	"github.com/google/go-github/v80/github"
 )
 
 // GitHub implements the Forge interface for GitHub.
