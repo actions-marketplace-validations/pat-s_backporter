@@ -1,4 +1,4 @@
-name: Backporter
+name: backporter-action
 description: Automatically backport merged PRs to target branches
 author: pat-s
 
