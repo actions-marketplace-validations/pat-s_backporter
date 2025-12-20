@@ -1,4 +1,4 @@
-# backporter
+# backporter <img src="assets/logo.png" alt="logo" align="right" height="138" />
 
 A CLI tool for backporting git commits and pull requests to target branches.
 
