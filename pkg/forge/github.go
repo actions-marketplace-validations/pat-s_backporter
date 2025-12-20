@@ -49,6 +49,12 @@ func (g *GitHub) GetPR(ctx context.Context, owner, repo string, number int) (*PR
 
 	squashed := len(mergeCommit.Parents) == 1
 
+	// Extract labels.
+	labels := make([]string, len(pr.Labels))
+	for i, label := range pr.Labels {
+		labels[i] = label.GetName()
+	}
+
 	info := &PRInfo{
 		Number:      pr.GetNumber(),
 		Title:       pr.GetTitle(),
@@ -62,6 +68,7 @@ func (g *GitHub) GetPR(ctx context.Context, owner, repo string, number int) (*PR
 		Squashed:    squashed,
 		Author:      pr.GetUser().GetLogin(),
 		MergedAt:    pr.GetMergedAt().Time,
+		Labels:      labels,
 	}
 
 	return info, nil
@@ -130,6 +137,69 @@ func (g *GitHub) ListRecentPRs(ctx context.Context, owner, repo string, limit in
 		if len(result) >= limit {
 			break
 		}
+	}
+
+	return result, nil
+}
+
+// CreatePR creates a new pull request and returns its number.
+func (g *GitHub) CreatePR(ctx context.Context, owner, repo string, opts CreatePROptions) (int, error) {
+	newPR := &github.NewPullRequest{
+		Title: github.Ptr(opts.Title),
+		Body:  github.Ptr(opts.Body),
+		Head:  github.Ptr(opts.Head),
+		Base:  github.Ptr(opts.Base),
+	}
+
+	pr, _, err := g.client.PullRequests.Create(ctx, owner, repo, newPR)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create PR: %w", err)
+	}
+
+	return pr.GetNumber(), nil
+}
+
+// ListOpenPRs lists open PRs, optionally filtered by head branch.
+func (g *GitHub) ListOpenPRs(ctx context.Context, owner, repo string, opts ListPROptions) ([]*PRInfo, error) {
+	const maxPRsPerPage = 100
+	listOpts := &github.PullRequestListOptions{
+		State: "open",
+		ListOptions: github.ListOptions{
+			PerPage: maxPRsPerPage,
+		},
+	}
+
+	if opts.Head != "" {
+		// GitHub requires head to be in format "owner:branch" or just "branch".
+		listOpts.Head = opts.Head
+	}
+
+	prs, _, err := g.client.PullRequests.List(ctx, owner, repo, listOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list open PRs: %w", err)
+	}
+
+	var result []*PRInfo
+	for _, pr := range prs {
+		// Extract labels.
+		labels := make([]string, len(pr.Labels))
+		for i, label := range pr.Labels {
+			labels[i] = label.GetName()
+		}
+
+		info := &PRInfo{
+			Number:     pr.GetNumber(),
+			Title:      pr.GetTitle(),
+			Body:       pr.GetBody(),
+			State:      pr.GetState(),
+			HeadSHA:    pr.GetHead().GetSHA(),
+			BaseBranch: pr.GetBase().GetRef(),
+			HeadBranch: pr.GetHead().GetRef(),
+			Merged:     pr.GetMerged(),
+			Author:     pr.GetUser().GetLogin(),
+			Labels:     labels,
+		}
+		result = append(result, info)
 	}
 
 	return result, nil

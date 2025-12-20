@@ -54,17 +54,14 @@ func TestCheckoutBranch(t *testing.T) {
 	defer cleanup()
 
 	// Change to repo directory.
-	oldDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(repoPath))
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(repoPath)
 
 	// Create a new branch.
 	cmd := exec.Command("git", "branch", "test-branch")
 	require.NoError(t, cmd.Run())
 
 	// Test checkout.
-	err = CheckoutBranch("test-branch")
+	err := CheckoutBranch("test-branch")
 	assert.NoError(t, err)
 
 	// Verify we're on the correct branch.
@@ -79,13 +76,10 @@ func TestCheckoutBranch_NonExistent(t *testing.T) {
 	repoPath, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	oldDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(repoPath))
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(repoPath)
 
 	// Try to checkout non-existent branch.
-	err = CheckoutBranch("non-existent-branch")
+	err := CheckoutBranch("non-existent-branch")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to checkout")
 }
@@ -158,10 +152,7 @@ func TestCherryPick_Success(t *testing.T) {
 	repoPath, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	oldDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(repoPath))
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(repoPath)
 
 	// Create a second commit to cherry-pick.
 	testFile := filepath.Join(repoPath, "test.txt")
@@ -194,10 +185,7 @@ func TestCherryPick_Conflict(t *testing.T) {
 	repoPath, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	oldDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(repoPath))
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(repoPath)
 
 	testFile := filepath.Join(repoPath, "test.txt")
 
@@ -238,12 +226,9 @@ func TestCreateBranch(t *testing.T) {
 	repoPath, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	oldDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(repoPath))
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(repoPath)
 
-	err = CreateBranch("new-branch")
+	err := CreateBranch("new-branch")
 	assert.NoError(t, err)
 
 	// Verify branch exists.
@@ -258,10 +243,7 @@ func TestCreateBranchFrom(t *testing.T) {
 	repoPath, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	oldDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(repoPath))
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(repoPath)
 
 	// Create second commit.
 	testFile := filepath.Join(repoPath, "test2.txt")
@@ -272,7 +254,7 @@ func TestCreateBranchFrom(t *testing.T) {
 	require.NoError(t, commit.Run())
 
 	// Create branch from HEAD~1.
-	err = CreateBranchFrom("from-prev", "HEAD~1")
+	err := CreateBranchFrom("from-prev", "HEAD~1")
 	assert.NoError(t, err)
 
 	// Verify branch exists and points to correct commit.
@@ -287,13 +269,10 @@ func TestAmendCommitMessage(t *testing.T) {
 	repoPath, cleanup := setupTestRepo(t)
 	defer cleanup()
 
-	oldDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(repoPath))
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(repoPath)
 
 	newMessage := "Amended commit message"
-	err = AmendCommitMessage(newMessage)
+	err := AmendCommitMessage(newMessage)
 	assert.NoError(t, err)
 
 	// Verify message was amended.

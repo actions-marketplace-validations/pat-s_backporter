@@ -37,16 +37,22 @@ func (f *Forgejo) Name() string {
 	return "forgejo"
 }
 
-// forgejoGetPR is the API response for a pull request.
+// forgejoLabel is the API response for a label.
+type forgejoLabel struct {
+	Name string `json:"name"`
+}
+
+// forgejoPR is the API response for a pull request.
 type forgejoPR struct {
-	Number    int    `json:"number"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	State     string `json:"state"`
-	Merged    bool   `json:"merged"`
-	MergeBase string `json:"merge_base"`
-	MergedAt  string `json:"merged_at"`
-	MergeSHA  string `json:"merge_commit_sha"`
+	Number    int            `json:"number"`
+	Title     string         `json:"title"`
+	Body      string         `json:"body"`
+	State     string         `json:"state"`
+	Merged    bool           `json:"merged"`
+	MergeBase string         `json:"merge_base"`
+	MergedAt  string         `json:"merged_at"`
+	MergeSHA  string         `json:"merge_commit_sha"`
+	Labels    []forgejoLabel `json:"labels"`
 	User      struct {
 		Login string `json:"login"`
 	} `json:"user"`
@@ -133,6 +139,12 @@ func (f *Forgejo) GetPR(ctx context.Context, owner, repo string, number int) (*P
 
 	mergedAt, _ := time.Parse(time.RFC3339, pr.MergedAt)
 
+	// Extract labels.
+	labels := make([]string, len(pr.Labels))
+	for i, label := range pr.Labels {
+		labels[i] = label.Name
+	}
+
 	info := &PRInfo{
 		Number:      pr.Number,
 		Title:       pr.Title,
@@ -146,6 +158,7 @@ func (f *Forgejo) GetPR(ctx context.Context, owner, repo string, number int) (*P
 		Squashed:    squashed,
 		Author:      pr.User.Login,
 		MergedAt:    mergedAt,
+		Labels:      labels,
 	}
 
 	return info, nil
@@ -253,6 +266,114 @@ func (f *Forgejo) ListRecentPRs(ctx context.Context, owner, repo string, limit i
 		if len(result) >= limit {
 			break
 		}
+	}
+
+	return result, nil
+}
+
+// forgejoCreatePRRequest is the request body for creating a PR.
+type forgejoCreatePRRequest struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+	Head  string `json:"head"`
+	Base  string `json:"base"`
+}
+
+// CreatePR creates a new pull request and returns its number.
+func (f *Forgejo) CreatePR(ctx context.Context, owner, repo string, opts CreatePROptions) (int, error) {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/pulls", f.baseURL, owner, repo)
+
+	reqBody := forgejoCreatePRRequest(opts)
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal PR request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return 0, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if f.token != "" {
+		req.Header.Set("Authorization", "token "+f.token)
+	}
+
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create PR: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("failed to create PR: %s (%s)", resp.Status, parseForgejoError(body))
+	}
+
+	var pr forgejoPR
+	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
+		return 0, fmt.Errorf("failed to decode PR response: %w", err)
+	}
+
+	return pr.Number, nil
+}
+
+// ListOpenPRs lists open PRs, optionally filtered by head branch.
+func (f *Forgejo) ListOpenPRs(ctx context.Context, owner, repo string, opts ListPROptions) ([]*PRInfo, error) {
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/pulls?state=open", f.baseURL, owner, repo)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if f.token != "" {
+		req.Header.Set("Authorization", "token "+f.token)
+	}
+
+	resp, err := f.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list open PRs: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to list open PRs: %s (%s)", resp.Status, parseForgejoError(body))
+	}
+
+	var prs []forgejoPR
+	if err := json.NewDecoder(resp.Body).Decode(&prs); err != nil {
+		return nil, fmt.Errorf("failed to decode PR list response: %w", err)
+	}
+
+	var result []*PRInfo
+	for _, pr := range prs {
+		// Filter by head branch if specified.
+		if opts.Head != "" && pr.Head.Ref != opts.Head {
+			continue
+		}
+
+		// Extract labels.
+		labels := make([]string, len(pr.Labels))
+		for i, label := range pr.Labels {
+			labels[i] = label.Name
+		}
+
+		info := &PRInfo{
+			Number:     pr.Number,
+			Title:      pr.Title,
+			Body:       pr.Body,
+			State:      pr.State,
+			HeadSHA:    pr.Head.SHA,
+			BaseBranch: pr.Base.Ref,
+			HeadBranch: pr.Head.Ref,
+			Merged:     pr.Merged,
+			Author:     pr.User.Login,
+			Labels:     labels,
+		}
+		result = append(result, info)
 	}
 
 	return result, nil

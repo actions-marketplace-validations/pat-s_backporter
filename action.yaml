@@ -1,0 +1,67 @@
+name: Backporter
+description: Automatically backport merged PRs to target branches
+author: pat-s
+
+branding:
+  icon: git-branch
+  color: blue
+
+inputs:
+  token:
+    description: GitHub/Forgejo token with repo permissions
+    required: true
+  dry-run:
+    description: Show what would be done without making changes
+    required: false
+    default: 'false'
+  forge-type:
+    description: 'Forge type: github or forgejo'
+    required: false
+    default: 'github'
+  forgejo-url:
+    description: Forgejo instance URL (required if forge-type is forgejo)
+    required: false
+  target-branches:
+    description: Comma-separated list of target branches (overrides config file)
+    required: false
+  default-prefix:
+    description: Default conventional commit prefix when not detected
+    required: false
+    default: 'fix'
+runs:
+  using: composite
+  steps:
+    - name: Download backporter
+      shell: bash
+      run: |
+        RELEASE_URL="https://github.com/pat-s/backporter/releases/latest/download"
+        case "${{ runner.os }}" in
+          Linux)
+            curl -sSL "${RELEASE_URL}/backporter_linux_amd64.tar.gz" | tar xz
+            ;;
+          macOS)
+            curl -sSL "${RELEASE_URL}/backporter_darwin_amd64.tar.gz" | tar xz
+            ;;
+          Windows)
+            curl -sSL "${RELEASE_URL}/backporter_windows_amd64.zip" -o backporter.zip
+            unzip -q backporter.zip
+            ;;
+          *)
+            echo "Unsupported OS: ${{ runner.os }}"
+            exit 1
+            ;;
+        esac
+        chmod +x backporter*
+
+    - name: Run backporter
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        FORGEJO_TOKEN: ${{ inputs.token }}
+        FORGEJO_URL: ${{ inputs.forgejo-url }}
+      run: |
+        ARGS="backport --ci"
+        if [ "${{ inputs.dry-run }}" = "true" ]; then
+          ARGS="$ARGS --dry-run"
+        fi
+        ./backporter $ARGS

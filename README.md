@@ -6,6 +6,7 @@ A CLI tool for backporting git commits and pull requests to target branches.
 
 - Backport commits by SHA or pull requests by number
 - Interactive mode with branch and PR selection
+- CI mode for automatic backporting on PR merge
 - Support for GitHub and Forgejo/Gitea forges
 - Configurable target branches (supports regex patterns)
 - Cache of backported commits/PRs for tracking
@@ -71,16 +72,115 @@ backporter list
 backporter list --clear  # Clear cache
 ```
 
+### CI mode
+
+Automatically backport merged PRs that have a label containing "backport":
+
+```bash
+backporter backport --ci
+```
+
+This command:
+
+1. Reads the most recent commit on the current branch
+2. Parses the PR number from the commit message
+3. Checks if the PR has any label containing "backport"
+4. If so, creates backport branches and PRs for all configured target branches
+
+The backport PR title uses the conventional commit prefix from the original PR (e.g., `feat(api):` becomes `feat(api): backport #123 to release-1.x`). If no prefix is found, it defaults to `fix:`.
+
+#### GitHub Actions
+
+```yaml
+name: Backport
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  backport:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pat-s/backporter@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+#### Forgejo Actions
+
+```yaml
+name: Backport
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  backport:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FORGEJO_TOKEN }}
+
+      - uses: pat-s/backporter@v1
+        with:
+          token: ${{ secrets.FORGEJO_TOKEN }}
+          forge-type: forgejo
+          forgejo-url: https://codefloe.com
+```
+
+#### Crow CI
+
+```yaml
+# .crow/backport.yaml
+when:
+  - event: pull_request_closed
+
+steps:
+  backport:
+    image: codefloe.com/pat-s/backporter:latest
+    environment:
+      FORGEJO_TOKEN:
+        from_secret: forgejo_token
+    commands:
+      - git config --global --add safe.directory "$CI_WORKSPACE"
+      - backporter backport --ci
+```
+
+#### Action Inputs
+
+| Input            | Description                                    | Required | Default  |
+| ---------------- | ---------------------------------------------- | -------- | -------- |
+| `token`          | GitHub/Forgejo token with repo permissions     | Yes      | -        |
+| `dry-run`        | Show what would be done without making changes | No       | `false`  |
+| `forge-type`     | Forge type: `github` or `forgejo`              | No       | `github` |
+| `forgejo-url`    | Forgejo instance URL (required for forgejo)    | No       | -        |
+| `default-prefix` | Default conventional commit prefix             | No       | `fix`    |
+
+Git user configuration (`user.name` and `user.email`) is auto-detected from the forge type if not already set.
+
 ## Configuration
 
 Configuration can be set globally (`~/.config/backporter/config.yaml`) or per-repository (`.backporter.yaml`).
 
 ```yaml
 # Forge type: "github" or "forgejo"
-forge_type: github
+forge_type: forgejo
 
-# Forgejo/Gitea instance URL (only for forgejo)
-# forgejo_url: https://codeberg.org
+# Forgejo instance URL (only for forgejo)
+# forgejo_url: https://codefloe.com
 
 # Default target branches (supports regex)
 target_branches:
@@ -101,6 +201,10 @@ recent_pr_count: 10
 cache:
   enabled: true
   path: '' # Defaults to ~/.cache/backporter/history.json
+
+# CI mode settings
+ci:
+  default_prefix: fix # Conventional commit prefix when not detected from PR title
 ```
 
 ## Authentication

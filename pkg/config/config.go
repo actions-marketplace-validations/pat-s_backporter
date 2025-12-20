@@ -43,6 +43,9 @@ type Config struct {
 
 	// Cache settings.
 	Cache CacheConfig `yaml:"cache"`
+
+	// CI settings for automated backporting.
+	CI CIConfig `yaml:"ci"`
 }
 
 // CacheConfig holds cache-related settings.
@@ -52,6 +55,13 @@ type CacheConfig struct {
 
 	// Path to cache file.
 	Path string `yaml:"path"`
+}
+
+// CIConfig holds CI-specific settings for automated backporting.
+type CIConfig struct {
+	// Default conventional commit prefix when original PR title doesn't have one.
+	// Default: "fix"
+	DefaultPrefix string `yaml:"default_prefix"`
 }
 
 // DefaultConfig returns a new Config with default values.
@@ -68,6 +78,9 @@ func DefaultConfig() *Config {
 		Cache: CacheConfig{
 			Enabled: true,
 			Path:    "",
+		},
+		CI: CIConfig{
+			DefaultPrefix: "fix",
 		},
 	}
 }
@@ -125,6 +138,11 @@ func (c *Config) Merge(other *Config) {
 	}
 	// Always take explicit boolean settings.
 	c.Cache.Enabled = other.Cache.Enabled
+
+	// CI settings.
+	if other.CI.DefaultPrefix != "" {
+		c.CI.DefaultPrefix = other.CI.DefaultPrefix
+	}
 }
 
 // GlobalConfigPath returns the path to the global config file.

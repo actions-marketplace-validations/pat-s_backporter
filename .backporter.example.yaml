@@ -42,6 +42,11 @@ cache:
   # Custom cache file path (optional, defaults to ~/.cache/backporter/history.json)
   path: ''
 
+# CI mode settings
+ci:
+  # Default conventional commit prefix when not detected from PR title
+  default_prefix: fix
+
 # Environment variables required for authentication:
 #
 # For GitHub:

@@ -106,3 +106,65 @@ func TestForgejoName(t *testing.T) {
 	fg := NewForgejo("https://codeberg.org", "test-token")
 	assert.Equal(t, "forgejo", fg.Name())
 }
+
+func TestPRInfoHasBackportLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		labels   []string
+		expected bool
+	}{
+		{
+			name:     "exact backport label",
+			labels:   []string{"backport"},
+			expected: true,
+		},
+		{
+			name:     "backport with prefix",
+			labels:   []string{"needs-backport"},
+			expected: true,
+		},
+		{
+			name:     "backport with suffix",
+			labels:   []string{"backport-needed"},
+			expected: true,
+		},
+		{
+			name:     "backport uppercase",
+			labels:   []string{"BACKPORT"},
+			expected: true,
+		},
+		{
+			name:     "backport mixed case",
+			labels:   []string{"BackPort"},
+			expected: true,
+		},
+		{
+			name:     "backport among other labels",
+			labels:   []string{"bug", "backport", "priority:high"},
+			expected: true,
+		},
+		{
+			name:     "no backport label",
+			labels:   []string{"bug", "enhancement"},
+			expected: false,
+		},
+		{
+			name:     "empty labels",
+			labels:   []string{},
+			expected: false,
+		},
+		{
+			name:     "nil labels",
+			labels:   nil,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pr := &PRInfo{Labels: tt.labels}
+			result := pr.HasBackportLabel()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

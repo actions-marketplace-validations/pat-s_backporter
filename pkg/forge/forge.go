@@ -17,8 +17,27 @@ type Forge interface {
 	// ListRecentPRs lists recently merged PRs.
 	ListRecentPRs(ctx context.Context, owner, repo string, limit int) ([]*PRInfo, error)
 
+	// CreatePR creates a new pull request and returns its number.
+	CreatePR(ctx context.Context, owner, repo string, opts CreatePROptions) (int, error)
+
+	// ListOpenPRs lists open PRs, optionally filtered by head branch.
+	ListOpenPRs(ctx context.Context, owner, repo string, opts ListPROptions) ([]*PRInfo, error)
+
 	// Name returns the name of the forge.
 	Name() string
+}
+
+// CreatePROptions contains options for creating a pull request.
+type CreatePROptions struct {
+	Title string // PR title
+	Body  string // PR description/body
+	Head  string // Source branch name
+	Base  string // Target branch name
+}
+
+// ListPROptions contains options for listing pull requests.
+type ListPROptions struct {
+	Head string // Filter by head branch (optional)
 }
 
 // NewOptions holds options for creating a forge client.

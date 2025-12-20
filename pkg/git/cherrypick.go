@@ -129,3 +129,81 @@ func Fetch(remote string) error {
 	}
 	return nil
 }
+
+// Push pushes a branch to the specified remote.
+func Push(remote, branch string) error {
+	cmd := exec.Command("git", "push", remote, branch)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to push %s to %s: %s - %w", branch, remote, string(output), err)
+	}
+	return nil
+}
+
+// GetHeadCommitMessage returns the commit message of HEAD.
+func GetHeadCommitMessage() (string, error) {
+	cmd := exec.Command("git", "log", "-1", "--format=%B")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get HEAD commit message: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// GetConfigValue returns a git config value, or empty string if not set.
+func GetConfigValue(key string) string {
+	cmd := exec.Command("git", "config", "--get", key)
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// SetConfigValue sets a git config value.
+func SetConfigValue(key, value string) error {
+	cmd := exec.Command("git", "config", "--global", key, value)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to set git config %s: %s - %w", key, string(output), err)
+	}
+	return nil
+}
+
+// ConfigureUserForCI configures git user.name and user.email for CI if not already set.
+// Returns true if configuration was applied.
+func ConfigureUserForCI(forgeType string) (bool, error) {
+	configured := false
+
+	// Check and set user.name if not configured.
+	if GetConfigValue("user.name") == "" {
+		var name string
+		switch forgeType {
+		case "forgejo":
+			name = "forgejo-actions[bot]"
+		default:
+			name = "github-actions[bot]"
+		}
+		if err := SetConfigValue("user.name", name); err != nil {
+			return false, err
+		}
+		configured = true
+	}
+
+	// Check and set user.email if not configured.
+	if GetConfigValue("user.email") == "" {
+		var email string
+		switch forgeType {
+		case "forgejo":
+			email = "forgejo-actions[bot]@noreply.forgejo.org"
+		default:
+			email = "github-actions[bot]@users.noreply.github.com"
+		}
+		if err := SetConfigValue("user.email", email); err != nil {
+			return false, err
+		}
+		configured = true
+	}
+
+	return configured, nil
+}

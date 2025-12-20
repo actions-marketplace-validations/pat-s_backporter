@@ -2,6 +2,8 @@
 package backport
 
 import (
+	"context"
+
 	"github.com/urfave/cli/v3"
 )
 
@@ -12,6 +14,23 @@ var Command = &cli.Command{
 	Commands: []*cli.Command{
 		prCmd,
 		commitCmd,
+	},
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "ci",
+			Usage: "run automatic backporting in CI mode",
+		},
+		&cli.BoolFlag{
+			Name:  "dry-run",
+			Usage: "show what would be done without making changes (CI mode only)",
+		},
+	},
+	Action: func(ctx context.Context, c *cli.Command) error {
+		if c.Bool("ci") {
+			return backportCI(ctx, c)
+		}
+		// No --ci flag and no subcommand: show help
+		return cli.ShowSubcommandHelp(c)
 	},
 }
 

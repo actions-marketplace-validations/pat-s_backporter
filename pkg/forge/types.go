@@ -1,7 +1,10 @@
 // Package forge provides abstraction over different git forges (GitHub, Forgejo, etc.).
 package forge
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // PRInfo contains information about a pull request.
 type PRInfo struct {
@@ -17,6 +20,17 @@ type PRInfo struct {
 	Squashed    bool
 	Author      string
 	MergedAt    time.Time
+	Labels      []string
+}
+
+// HasBackportLabel checks if the PR has any label containing "backport".
+func (p *PRInfo) HasBackportLabel() bool {
+	for _, label := range p.Labels {
+		if strings.Contains(strings.ToLower(label), "backport") {
+			return true
+		}
+	}
+	return false
 }
 
 // CommitInfo contains information about a commit.
