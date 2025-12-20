@@ -24,7 +24,6 @@ steps:
     when:
       path:
         - <<: *when_path
-        - '.crow/**'
 
   lint:
     depends_on:
