@@ -2,6 +2,11 @@
 
 A CLI tool for backporting git commits and pull requests to target branches.
 
+<p align="left">
+  <a href="https://liberapay.com/pat-s"><img alt="Liberapay receiving" src="https://img.shields.io/liberapay/receives/pat-s.svg?logo=liberapay"></a>&nbsp;&nbsp;
+  <a href="https://liberapay.com/pat-s/donate"><img alt="Donate using Liberapay" src="https://img.shields.io/badge/Donate-F6C915?logo=liberapay&logoColor=black"></a>
+</p>
+
 ## Features
 
 - Backport commits by SHA or pull requests by number
